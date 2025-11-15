@@ -1,1 +1,2 @@
-# xniu0536_9103_tut2_groupassignment_scream
+# IDEA9103_Major_project
+Creative coding major project
