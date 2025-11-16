@@ -1,53 +1,199 @@
+//Random Shape class
+class randomShape {
+  constructor(type) {
+    this.type = type;
+    this.x = random(0.8);
+    this.y = random(0.8);
+
+    this.size = random(0.08, 0.25);
+
+    //low-saturation red-brown tones
+    let baseR = random(120, 200);
+    let baseG = baseR - random(30, 80);
+    let baseB = random(20, 60);
+    this.color = [baseR, baseG, baseB];
+
+    this.scale = 1;
+  }
+
+  display(scale) {
+    this.scale = scale;
+    fill(this.color[0], this.color[1], this.color[2], 140);
+    noStroke();
+
+    let minDimension = min(width, height); 
+
+    let size = this.size * minDimension;
+
+    size = size * this.scale;
+
+    let x = this.x * width;
+    let y = this.y * height;
+
+    // Draw the shape
+    switch (this.type) {
+      case "circle":
+        ellipse(x, y, size, size);
+        break;
+      case "square":
+        push();
+        rectMode(CENTER);
+        rect(x, y, size, size);
+        pop();
+        break;
+    }
+  }
+}
+
+// Array to hold the shapes
+let shapes = [];
+
+// audio setup
+let song;
+let analyser;
+let fft;
+let volume = 1.0;
+let pan = 0.0;
+
+// FFT setup
+let numBins = 128;
+let smoothing = 0.4;
+
+// load audio
+function preload() {
+  song = loadSound('Gyorgy LigetiAtmospheres.wav'); 
+}
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
+
+  // amplitude analyser
+  analyser = new p5.Amplitude();
+  analyser.setInput(song);
+
+  // FFT for frequency analysis
+  fft = new p5.FFT(smoothing, numBins);
+  song.connect(fft);
+
+  // draw random shapes 
+  for (let i = 0; i < numBins; i++) {
+    let shapeType = Math.random() > 0.5 ? "circle" : "square";
+    shapes.push(new randomShape(shapeType));
+  }
+
+  // button setup
+  let button = createButton('Play / Pause');
+  button.position(20, 20);
+  button.mousePressed(togglePlay);
+}
+
+// toggle playback
+function togglePlay() {
+  if (song.isPlaying()) {
+    song.stop();
+  } else {
+    song.loop();
+    song.setVolume(volume);
+    song.pan(pan);
+  }
+}
+
+// mouseMoved volume and pan control
+function mouseMoved() {
+  volume = map(mouseY, 0, height, 1, 0, true);
+  song.setVolume(volume);
+
+  pan = map(mouseX, 0, width, -1, 1, true);
+  song.pan(pan);
 }
 
 function draw() {
   background(0);
 
-  drawSky();
+  //audio amplitude rms
+  let rms = analyser.getLevel();
 
-  drawWater();
+  // FFT
+  let spectrum = fft.analyze();
 
+  drawSky(rms);
+  drawWater(rms);
   drawBridge();
-
   drawBGPeople();
+  drawScreamingPeople(rms, spectrum);
 
-  drawScreamingPeople();
+  // use the spectrum to control the scale of each random shape
+  for (let i = 0; i < shapes.length && i < spectrum.length; i++) {
+    let scale = spectrum[i] / 255;
+    shapes[i].display(scale);
+  }
+
+  // volume and pan text
+  fill(255);
+  textSize(14);
+  text("Volume: " + volume.toFixed(2), 20, 60);
+  text("Pan: " + pan.toFixed(2), 20, 80);
+
 }
 
-function drawSky() {
+// drawing functions
+function drawSky(rms) {
+
+  //map rms tp a movement factor
+  let skyFactor = map(rms, 0, 0.3, 0.8, 3.8, true);
+
   // Orange and yellow wavy bands
   for (let i = 0; i < height * 0.4; i += 15) {
-    let wave = sin(i * 0.05) * 50;
-    let wave2 = cos(i * 0.08) * 30;
+
+    // Add audio factor to the main waves
+    let wave = sin(i * 0.05) * 50 * skyFactor;
+    let wave2 = cos(i * 0.08) * 30 * skyFactor;
+
     // Orange to yellow gradient
     let r = 255 - i * 0.2 + sin(i * 0.1) * 20;
     let g = 150 + i * 0.3 + cos(i * 0.15) * 15;
-    fill(r, g, 0, 180);
+
     noStroke();
+    //little change with skyFactor
+    fill(r, g, 0, 140 + skyFactor * 40);
+
     // Draw wavy bands using rectangles
     for (let x = 0; x < width; x += 5) {
-      let y = i + sin(x * 0.01 + i * 0.05) * 30 + sin(x * 0.02 + i * 0.1) * 20 + wave + wave2;
+      let y = i
+        + sin(x * 0.01 + i * 0.05) * 30 * skyFactor
+        + sin(x * 0.02 + i * 0.1) * 20 * skyFactor
+        + wave + wave2;
+
       rect(x, y, 5, 20);
     }
   }
 }
 
-function drawWater() {
+function drawWater(rms) {
+  //map rms for water
+  let waterFactor = map(rms, 0, 0.3, 0.8, 2.5, true);
+
   // Dark swirling blues and purples
   for (let i = height * 0.4; i < height * 0.7; i += 12) {
-    let wave = sin(i * 0.1) * 40;
-    let wave2 = cos(i * 0.15) * 30;
+    let wave = sin(i * 0.1) * 40 * waterFactor;
+    let wave2 = cos(i * 0.15) * 30 * waterFactor;
+
     // More color variation
     let r = 20 + sin(i * 0.2) * 10;
-    let g = 30 + i * 0.3 + cos(i * 0.25) * 15;
-    let b = 60 + i * 0.2 + sin(i * 0.3) * 20;
-    fill(r, g, b, 160);
+    let g = 30 + i * 0.3 + cos(i * 0.25) * 15 + waterFactor * 5;
+    let b = 60 + i * 0.2 + sin(i * 0.3) * 20 + waterFactor * 10;
+
+    fill(r, g, b, 140 + waterFactor * 20);
     noStroke();
+
     // Draw wavy water using rectangles
     for (let x = 0; x < width; x += 3) {
-      let y = i + sin(x * 0.02 + i * 0.1) * 25 + sin(x * 0.03 + i * 0.2) * 15 + cos(x * 0.015 + i * 0.12) * 10 + wave + wave2;
+      let y = i
+        + sin(x * 0.02 + i * 0.1) * 25 * waterFactor
+        + sin(x * 0.03 + i * 0.2) * 15 * waterFactor
+        + cos(x * 0.015 + i * 0.12) * 10 * waterFactor
+        + wave + wave2;
+
       rect(x, y, 3, height - y);
     }
   }
@@ -92,9 +238,7 @@ function drawBridge() {
   pop();
 }
 
-
 function drawBGPeople() {
-
   fill(20, 30, 50);
   noStroke();
 
@@ -117,28 +261,46 @@ function drawBGPeople() {
   ellipse(fig2X + 5, fig2Y + 35, 8, 50);
 }
 
+function drawScreamingPeople(rms, spectrum) {
+  // Map RMS to shock intensity
+  let shock = map(rms, 0, 0.3, 0, 1.5, true);
 
-function drawScreamingPeople() {
   push();
-  translate(width * 0.5, height * 0.85);
-  
-  noFill();
-  
-  // Scream effect
-  noFill();
-  stroke(255, 200, 100, 100);
-  strokeWeight(3);
-  ellipse(0, -60, 120, 150);
-  ellipse(0, -60, 180, 220);
-  ellipse(0, -60, 240, 290);
-  ellipse(0, -60, 300, 360);
-  
-  // Scream effect 2
-  stroke(255, 150, 50, 80);
-  strokeWeight(2);
-  ellipse(0, -60, 150, 180);
-  ellipse(0, -60, 210, 250);
-  ellipse(0, -60, 270, 320);
+
+  // Slight vertical shake
+  let yShake = shock * 10 * sin(frameCount * 0.3);
+  translate(width * 0.5, height * 0.85 + yShake);
+
+  // FFT spectrum ring around the people
+  if (spectrum && spectrum.length > 0) {
+    push();
+    // Head center
+    translate(0, -60);
+
+    let minDimension = min(width, height);
+    let circleRadius = minDimension / 10;
+    let maxRectLength = minDimension / 12;
+    let bins = spectrum.length;
+
+    // Use HSB for the spectrum bars
+    colorMode(HSB, 255);
+
+    for (let i = 0; i < bins; i++) {
+      let angle = map(i, 0, bins, 0, TWO_PI);
+      let amp = spectrum[i];
+      let rectHeight = map(amp, 0, 255, 0, maxRectLength);
+
+      push();
+      rotate(angle);
+      fill(map(i, 0, bins, 0, 255), 255, 255, 200);
+      rect(0, circleRadius, minDimension / (bins * 2), rectHeight);
+      pop();
+    }
+
+    colorMode(RGB, 255);
+
+    pop();
+  }
 
   // Body
   fill(30, 40, 60);
@@ -154,9 +316,13 @@ function drawScreamingPeople() {
   ellipse(-15, -70, 12, 15);
   ellipse(15, -70, 12, 15);
   
-  // Mouth
+  // Mouth bigger when louder
   fill(40, 30, 20);
-  ellipse(0, -40, 35, 50);
+  let baseMouthW = 18;
+  let baseMouthH = 30;
+  let mouthW = baseMouthW + rms * 40;
+  let mouthH = baseMouthH + rms * 120;
+  ellipse(0, -40, mouthW, mouthH);
   
   // Hands on head
   fill(200, 220, 150);
