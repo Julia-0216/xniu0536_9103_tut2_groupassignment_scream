@@ -1,7 +1,7 @@
 # The Scream – Audio-Reactive Version
 
 ##  How to Interact
-1. Open `index.html` in your browser and wait for everything to load.
+1. Open the project using Live Server.
 2. Click the **Play / Pause** button in the top-left corner to start or stop the music.
 3. Move your mouse across the screen:
    - **Up / Down** → controls volume  
